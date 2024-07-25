@@ -1,0 +1,23 @@
+products:
+  - sn: ''
+    name: '定期存款1号产品'
+    # 产品描述
+    desc: ''
+    # 利率
+    interest: 0.0015
+    # 起购金额
+    minimumAmount: 0.01
+    # 剩余可购额度，-1.0代表可以无限制购买
+    availableQuota: -1.0
+    # 最小持有时间，单位为现实世界的天
+    minimumKeepingTime: 0
+    # 是否允许提前支取
+    allowEarlyWithdraw: true
+  - sn: ''
+    name: '理财产品'
+    desc: ''
+    interest: 0.0105
+    minimumAmount: 0.01
+    availableQuota: -1.0
+    minimumKeepingTime: 0
+    allowEarlyWithdraw: false
