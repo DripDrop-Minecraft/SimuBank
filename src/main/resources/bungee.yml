@@ -1,0 +1,4 @@
+name: SimuBank
+version: '1.0-SNAPSHOT'
+main: games.dripdrop.simubank.SimuBank
+author: Git-a-Live
