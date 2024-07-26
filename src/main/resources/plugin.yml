@@ -1,0 +1,12 @@
+name: DripDropBank
+version: '1.0-SNAPSHOT'
+main: games.dripdrop.simubank.DripDropBank
+api-version: '1.20'
+load: STARTUP
+dependencies:
+  - name: Vault
+    required: true
+  - name: XConomy
+    required: true
+authors: [ Git-a-Live ]
+description: A simulated stock market for DripDrop
