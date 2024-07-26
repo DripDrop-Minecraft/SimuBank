@@ -9,7 +9,7 @@ data class Deposit(
     val amount: Double,
     // 存单创建时间
     val createTime: Long,
-    // 累计存款时间，单位为现实世界的天
+    // 累计存款时间
     val depositKeepingTime: Double,
     // 存单利率
     val interest: Double,

@@ -6,5 +6,4 @@ enum class Command(val value: String) {
     DEPOSIT("deposit"),
     WITHDRAW("withdraw"),
     WEALTH("wealth"),
-
 }

@@ -1,7 +1,5 @@
 package games.dripdrop.simubank.model.data
 
-import com.sun.org.apache.xpath.internal.operations.String
-
 data class PlayTime(
     // 玩家UUID
     var playerUUId: String,
