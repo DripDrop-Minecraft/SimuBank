@@ -2,15 +2,15 @@ package games.dripdrop.simubank.controller.database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import games.dripdrop.simubank.controller.utils.getPluginConfig
 import games.dripdrop.simubank.controller.utils.i
+import org.bukkit.configuration.file.YamlConfiguration
 import java.util.concurrent.atomic.AtomicBoolean
 
 object MySQLManager {
     private lateinit var mDataSource: HikariDataSource
     private val mIsInit = AtomicBoolean(false)
 
-    fun initDatabase() {
+    fun initDatabase(config: YamlConfiguration) {
         i("start to init database")
         if (mIsInit.get()) {
             i("database has been initialized")
@@ -19,26 +19,26 @@ object MySQLManager {
         try {
             mDataSource = HikariDataSource(
                 HikariConfig().apply {
-                    jdbcUrl = getPluginConfig()?.get("databaseUrl").toString()
-                    username = getPluginConfig()?.get("databaseAccount").toString()
-                    password = getPluginConfig()?.get("databasePassword").toString()
+                    jdbcUrl = config.get("databaseUrl").toString()
+                    username = config.get("databaseAccount").toString()
+                    password = config.get("databasePassword").toString()
                     connectionTimeout = 10 * 1000L
                     maximumPoolSize = 32
                 }
             )
             mIsInit.set(true)
-            createDatabase()
+            createDatabase(config)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private fun createDatabase() {
+    private fun createDatabase(config: YamlConfiguration) {
         i("try to create database now")
         mDataSource.connection.use {
             it.prepareStatement(
                 StringBuilder("CREATE DATABASE IF NOT EXISTS ")
-                    .append(getPluginConfig()?.get("databaseName").toString())
+                    .append(config.get("databaseName").toString())
                     .append(" CHARACTER SET utf8mb4")
                     .append(" COLLATE utf8mb4_general_ci")
                     .toString()
@@ -47,7 +47,7 @@ object MySQLManager {
         mDataSource.connection.use {
             it.prepareStatement(
                 StringBuilder("USE ")
-                    .append(getPluginConfig()?.get("databaseName").toString())
+                    .append(config.get("databaseName").toString())
                     .toString()
             ).executeUpdate()
         }

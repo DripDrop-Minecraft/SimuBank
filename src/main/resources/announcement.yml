@@ -1,0 +1,7 @@
+# 公告标题
+title: 'This is a title'
+# 公告内容
+content: |
+  This is content part of current announcement,
+  edit it and publish it via command /ddbank announce
+  in the server
