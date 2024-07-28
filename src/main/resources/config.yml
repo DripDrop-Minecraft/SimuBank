@@ -1,12 +1,8 @@
-# 活期利率
-interestOfCurrent: 0.0015
-# 最低定期利率
-minInterestOfFixed: 0.0105
 # 数据库连接地址
 databaseUrl: 'jdbc:mysql://localhost:3306/mysql'
 # 数据库名称
 databaseName: 'dripdropbank'
 # 数据库账号
-databaseAccount: ''
+databaseAccount: 'root'
 # 数据库密码
-databasePassword: ''
+databasePassword: '1234567890'

@@ -7,5 +7,7 @@ fixedDeposit: '定期存单'
 interest: '利率'
 confirm: '确认'
 cancel: '取消'
+moreAnnouncements: '点此查看更多公告'
+
 hintForDeposit: ''
 hintForWithdraw: ''

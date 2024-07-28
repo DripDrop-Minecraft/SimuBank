@@ -1,6 +1,6 @@
 name: DripDropBank
 version: '1.0-SNAPSHOT'
-main: games.dripdrop.simubank.DripDropBank
+main: games.dripdrop.simubank.BukkitBankPlugin
 api-version: '1.20'
 load: STARTUP
 dependencies:
@@ -10,3 +10,8 @@ dependencies:
     required: true
 authors: [ Git-a-Live ]
 description: A simulated stock market for DripDrop
+
+commands:
+  ddbank:
+    description: ""
+    usage: "/ddbank <arg>"

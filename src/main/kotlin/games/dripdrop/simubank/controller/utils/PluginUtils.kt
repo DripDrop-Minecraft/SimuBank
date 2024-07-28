@@ -1,51 +1,102 @@
 package games.dripdrop.simubank.controller.utils
 
 
-import games.dripdrop.simubank.DripDropBank
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.reflect.TypeToken
+import games.dripdrop.simubank.BukkitBankPlugin
 import games.dripdrop.simubank.model.constant.FileEnums
 import org.bukkit.Bukkit
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
-import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicReference
+import java.util.logging.Level
 
+const val CHANNEL_NAME = "BungeeCordPlugin"
 const val COMMAND = "ddbank"
-private var mConfiguration: YamlConfiguration? = null
-private val mLogger = LoggerFactory.getLogger(DripDropBank::class.java.simpleName)
+var pluginConfig = AtomicReference<YamlConfiguration?>(null)
+var pluginLang = AtomicReference<YamlConfiguration?>(null)
+val gson: Gson = GsonBuilder().setPrettyPrinting().setLenient()
+    .serializeNulls()
+    .disableHtmlEscaping()
+    .create()
+
+inline fun <reified T> String.tiObjectList(): List<T?> {
+    return try {
+        if (isNotEmpty()) {
+            gson.fromJson(this, (object : TypeToken<List<T>>() {}.type))
+        } else {
+            emptyList()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        emptyList()
+    }
+}
+
+inline fun <reified T> String.toObject(): T? {
+    return try {
+        if (isNotEmpty()) {
+            gson.fromJson(this, T::class.java)
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
 
 fun runSyncTask(plugin: JavaPlugin, action: () -> Unit) {
-    Bukkit.getScheduler().runTask(plugin, action)
+    Bukkit.getScheduler().runTask(plugin, Runnable {
+        i("current thread is: ${Thread.currentThread().name}")
+        action()
+    })
 }
 
 fun runAsyncTask(plugin: JavaPlugin, action: () -> Unit) {
-    Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable { action() })
+    Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+        i("current thread is: ${Thread.currentThread().name}")
+        action()
+    })
 }
 
-fun d(msg: String) = mLogger.debug(msg)
+fun d(msg: String) = println(msg) // Bukkit.getLogger().log(Level.ALL, "[DripDropBank] $msg")
 
-fun i(msg: String) = mLogger.info(msg)
+fun i(msg: String) = println(msg) //Bukkit.getLogger().log(Level.INFO, "[DripDropBank] $msg")
 
-fun w(msg: String) = mLogger.warn(msg)
+fun w(msg: String) = Bukkit.getLogger().log(Level.WARNING, "[DripDropBank] $msg")
 
-fun e(msg: String) = mLogger.error(msg)
+fun e(msg: String) = println(msg) // Bukkit.getLogger().log(Level.SEVERE, "[DripDropBank] $msg")
 
-fun getPluginConfig(): YamlConfiguration? {
-    i("is configuration null: ${mConfiguration == null}")
-    return mConfiguration
-}
-
-fun getConfigYaml(plugin: JavaPlugin) {
-    if (!checkFileOrDirectoryAvailable(plugin.dataFolder, FileEnums.CONFIG)) {
-        return
+fun getSpecifiedYaml(
+    plugin: JavaPlugin,
+    fileEnums: FileEnums,
+    action: (YamlConfiguration) -> Unit = {}
+) {
+    runAsyncTask(plugin) {
+        if (!checkFileOrDirectoryAvailable(plugin.dataFolder, fileEnums)) {
+            return@runAsyncTask
+        }
+        try {
+            val file = File("${plugin.dataFolder}${File.separator}${fileEnums.file}")
+            YamlConfiguration.loadConfiguration(file).apply(action)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
-    try {
-        val file = File("${plugin.dataFolder}${File.separator}${FileEnums.CONFIG.file}")
-        i("config file path is [${file.path}]")
-        mConfiguration = YamlConfiguration.loadConfiguration(file)
-    } catch (e: Exception) {
-        e("failed to get config yaml file: ${e.localizedMessage}")
-        e.printStackTrace()
+}
+
+fun loadYamlFiles(plugin: JavaPlugin, action: (YamlConfiguration) -> Unit) {
+    i("start to load plugin yaml files...")
+    getSpecifiedYaml(plugin, FileEnums.CONFIG) {
+        pluginConfig.set(it)
+        action(it)
+    }
+    getSpecifiedYaml(plugin, FileEnums.LANG) {
+        pluginLang.set(it)
     }
 }
 
@@ -60,7 +111,7 @@ fun checkFileOrDirectoryAvailable(directory: File, file: FileEnums): Boolean {
         val f = File(directory, file.file)
         i("file [$f] exists: ${f.exists()}")
         if (directory.exists() && !f.exists()) {
-            DripDropBank::class.java.getResourceAsStream("/${file.file}")?.let {
+            BukkitBankPlugin::class.java.getResourceAsStream("/${file.file}")?.let {
                 Files.copy(it, f.toPath()).apply { i("file copy result: $this") }
             }
         }

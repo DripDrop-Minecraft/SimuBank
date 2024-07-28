@@ -1,9 +1,11 @@
 package games.dripdrop.simubank.model.constant
 
 enum class Command(val value: String) {
-    HELP("help"),
     OVERVIEW("overview"),
+    PUBLISH_ANNOUNCE("publish"),
+    QUERY_ANNOUNCEMENT("announcement"),
+    RELOAD("reload"),
+    PRODUCT("product"),
     DEPOSIT("deposit"),
-    WITHDRAW("withdraw"),
-    WEALTH("wealth"),
+    WITHDRAW("withdraw")
 }

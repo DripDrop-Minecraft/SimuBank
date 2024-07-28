@@ -1,61 +1,68 @@
 package games.dripdrop.simubank.controller.database
 
 import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
-import games.dripdrop.simubank.controller.utils.getPluginConfig
 import games.dripdrop.simubank.controller.utils.i
-import java.util.concurrent.atomic.AtomicBoolean
+import games.dripdrop.simubank.model.data.Announcement
+import games.dripdrop.simubank.model.data.Deposit
+import games.dripdrop.simubank.model.data.PlayTime
+import org.bukkit.configuration.file.YamlConfiguration
 
-object MySQLManager {
-    private lateinit var mDataSource: HikariDataSource
-    private val mIsInit = AtomicBoolean(false)
+object MySQLManager : AbstractDatabaseManager() {
+    private var mConfig: YamlConfiguration? = null
 
-    fun initDatabase() {
+    override fun createDatabase(databaseName: String) {
+        super.createDatabase(databaseName)
+        arrayOf(
+            createAnnouncementTable(),
+            createPlayTimeTable(),
+            createDepositTable()
+        ).onEach { statement ->
+            getDataSource()?.connection?.use { it.update(statement, mapOf()) {} }
+        }
+    }
+
+    fun initMySQLDatabase(config: YamlConfiguration) {
         i("start to init database")
-        if (mIsInit.get()) {
+        if (isDatabaseInitialized()) {
             i("database has been initialized")
             return
         }
-        try {
-            mDataSource = HikariDataSource(
-                HikariConfig().apply {
-                    jdbcUrl = getPluginConfig()?.get("databaseUrl").toString()
-                    username = getPluginConfig()?.get("databaseAccount").toString()
-                    password = getPluginConfig()?.get("databasePassword").toString()
-                    connectionTimeout = 10 * 1000L
-                    maximumPoolSize = 32
-                }
-            )
-            mIsInit.set(true)
-            createDatabase()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        mConfig = config
+        initDatabase(crateHikariConfig(config))
+        config.getString("databaseName")?.let { createDatabase(it) }
+    }
+
+    private fun crateHikariConfig(config: YamlConfiguration): HikariConfig {
+        return HikariConfig().apply {
+            jdbcUrl = config.get("databaseUrl").toString()
+            username = config.get("databaseAccount").toString()
+            password = config.get("databasePassword").toString()
+            connectionTimeout = 10 * 1000L
+            maximumPoolSize = 16
         }
     }
 
-    private fun createDatabase() {
-        i("try to create database now")
-        mDataSource.connection.use {
-            it.prepareStatement(
-                StringBuilder("CREATE DATABASE IF NOT EXISTS ")
-                    .append(getPluginConfig()?.get("databaseName").toString())
-                    .append(" CHARACTER SET utf8mb4")
-                    .append(" COLLATE utf8mb4_general_ci")
-                    .toString()
-            ).executeUpdate()
-        }
-        mDataSource.connection.use {
-            it.prepareStatement(
-                StringBuilder("USE ")
-                    .append(getPluginConfig()?.get("databaseName").toString())
-                    .toString()
-            ).executeUpdate()
-        }
-        createTables()
-    }
+    private fun createAnnouncementTable(): String = createTableCreatingSQL<Announcement>(
+        "timestamp INT PRIMARY KEY, ",
+        "title TEXT NOT NULL, ",
+        "content TEXT NOT NULL"
+    )
 
-    private fun createTables() {
-        i("try to create tables now")
-        // TODO
-    }
+    private fun createPlayTimeTable(): String = createTableCreatingSQL<PlayTime>(
+        "playerUUId VARCHAR(50) PRIMARY KEY, ",
+        "loginTime INT NOT NULL, ",
+        "logoutTime INT NOT NULL"
+    )
+
+    private fun createDepositTable(): String = createTableCreatingSQL<Deposit>(
+        "sn VARCHAR(50) PRIMARY KEY, ",
+        "ownerId TEXT NOT NULL, ",
+        "amount DOUBLE DEFAULT 0.0, ",
+        "createTime INT NOT NULL, ",
+        "interestBearingPolicy INT DEFAULT 0, ",
+        "interest DOUBLE DEFAULT 0.0, ",
+        "type INT DEFAULT 0, ",
+        "description TEXT NOT NULL, ",
+        "allowEarlyWithdraw BOOL NOT NULL"
+    )
 }

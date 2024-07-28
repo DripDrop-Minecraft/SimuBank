@@ -1,1 +1,1 @@
-rootProject.name = "SimuBank"
+rootProject.name = "DripDropBank"

@@ -1,4 +1,4 @@
-name: SimuBank
+name: DripDropBank
 version: '1.0-SNAPSHOT'
-main: games.dripdrop.simubank.SimuBank
+main: games.dripdrop.simubank.BungeeCordBankPlugin
 author: Git-a-Live

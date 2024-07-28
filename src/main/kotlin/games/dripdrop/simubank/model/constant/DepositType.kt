@@ -5,8 +5,5 @@ enum class DepositType(val type: Int) {
     CURRENT(0),
 
     // 定期
-    FIXED(1),
-
-    // 理财产品
-    WMP(2)
+    FIXED(1)
 }

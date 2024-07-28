@@ -18,14 +18,15 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
+    testImplementation("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
     compileOnly("net.md-5:bungeecord-api:1.20-R0.1-SNAPSHOT")
+    testImplementation("net.md-5:bungeecord-api:1.20-R0.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7.1")
+    testImplementation("com.github.MilkBowl:VaultAPI:1.7.1")
 
     implementation("mysql:mysql-connector-java:8.0.33")
     implementation("com.zaxxer:HikariCP:5.1.0")
-    implementation("org.apache.logging.log4j:log4j-api:2.23.1")
-    implementation("org.apache.logging.log4j:log4j-core:2.23.1")
-    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1")
+    implementation("com.google.code.gson:gson:2.9.0")
 }
 
 val targetJavaVersion = 21

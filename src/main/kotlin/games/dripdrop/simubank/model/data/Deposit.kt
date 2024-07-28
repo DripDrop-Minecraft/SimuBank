@@ -9,14 +9,14 @@ data class Deposit(
     val amount: Double,
     // 存单创建时间
     val createTime: Long,
-    // 累计存款时间
-    val depositKeepingTime: Double,
+    // 计息策略
+    val interestBearingPolicy: Int,
     // 存单利率
     val interest: Double,
-    // 存单种类
+    // 存单对应的产品类型
     val type: Int,
     // 存单描述
-    val desc: String,
+    val description: String,
     // 是否允许提前支取
     val allowEarlyWithdraw: Boolean
 )
