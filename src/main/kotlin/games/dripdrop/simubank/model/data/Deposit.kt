@@ -17,6 +17,8 @@ data class Deposit(
     val description: String,
     // 是否允许提前支取
     val allowEarlyWithdraw: Boolean,
+    // 续期次数
+    val renewal: Int,
     // 存单创建时间
     val createTime: Long = System.currentTimeMillis()
 )

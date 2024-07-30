@@ -14,7 +14,6 @@ import java.sql.ResultSet
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
-import java.util.logging.Level
 
 const val CHANNEL_NAME = "BungeeCordPlugin"
 const val COMMAND = "ddbank"
@@ -71,13 +70,13 @@ fun runAsyncTask(plugin: JavaPlugin, action: () -> Unit) {
     })
 }
 
-fun d(msg: String) = Bukkit.getLogger().log(Level.ALL, "[DripDropBank] $msg")
+fun d(msg: String) = println(msg) // Bukkit.getLogger().log(Level.ALL, "[DripDropBank] $msg")
 
-fun i(msg: String) = Bukkit.getLogger().log(Level.INFO, "[DripDropBank] $msg")
+fun i(msg: String) = println(msg) // Bukkit.getLogger().log(Level.INFO, "[DripDropBank] $msg")
 
-fun w(msg: String) = Bukkit.getLogger().log(Level.WARNING, "[DripDropBank] $msg")
+fun w(msg: String) = println(msg) // Bukkit.getLogger().log(Level.WARNING, "[DripDropBank] $msg")
 
-fun e(msg: String) = Bukkit.getLogger().log(Level.SEVERE, "[DripDropBank] $msg")
+fun e(msg: String) = println(msg) // Bukkit.getLogger().log(Level.SEVERE, "[DripDropBank] $msg")
 
 fun getSpecifiedYaml(
     plugin: JavaPlugin,

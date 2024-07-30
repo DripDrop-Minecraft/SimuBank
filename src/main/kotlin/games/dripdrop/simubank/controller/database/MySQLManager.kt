@@ -128,6 +128,7 @@ object MySQLManager : AbstractDatabaseManager() {
                 "${deposit.type}, ",
                 "'${deposit.description}', ",
                 "${deposit.allowEarlyWithdraw}, ",
+                "${deposit.renewal}, ",
                 "${deposit.createTime}"
             )
         ) {
@@ -232,6 +233,7 @@ object MySQLManager : AbstractDatabaseManager() {
         "type INT DEFAULT 0, ",
         "description VARCHAR(140) NOT NULL, ",
         "allowEarlyWithdraw BOOLEAN DEFAULT true, ",
+        "renewal INT DEFAULT 0, ",
         "createTime LONG NOT NULL"
     )
 }
