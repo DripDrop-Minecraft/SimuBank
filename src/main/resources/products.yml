@@ -1,23 +1,73 @@
 products:
-  - productCode: ''
-    name: '定期存款1号产品'
+  - productCode: 'C001'
+    # 产品名称
+    name: '活期存款'
     # 产品描述
-    desc: ''
-    # 利率
-    interest: 0.0015
+    desc: |
+      随取随用，放着也能产生利息
+      日利率0.001%
+    # 利率（%）
+    interest: 0.001
     # 起购金额
     minimumAmount: 0.01
     # 剩余可购额度，-1.0代表可以无限制购买
     availableQuota: -1.0
     # 最小持有时间，单位为现实世界的天
-    minimumKeepingTime: 0
+    minimumKeepingTime: 1
     # 是否允许提前支取
     allowEarlyWithdraw: true
-  - productCode: ''
-    name: '理财产品'
-    desc: ''
-    interest: 0.0105
-    minimumAmount: 0.01
+  - productCode: 'F30D'
+    name: '30天定期存款'
+    desc: |
+      存满现实世界的30天才能计息
+      若提前支取，取出部分会按活期计算
+      日利率0.040%
+    interest: 0.040
+    minimumAmount: 1000.00
     availableQuota: -1.0
-    minimumKeepingTime: 0
-    allowEarlyWithdraw: false
+    minimumKeepingTime: 30
+    allowEarlyWithdraw: true
+  - productCode: 'F60D'
+    name: '60天定期存款'
+    desc: |
+      存满现实世界的60天才能计息
+      若提前支取，取出部分会按活期计算
+      日利率0.050%
+    interest: 0.050
+    minimumAmount: 1000.00
+    availableQuota: -1.0
+    minimumKeepingTime: 60
+    allowEarlyWithdraw: true
+  - productCode: 'F75D'
+    name: '75天定期存款'
+    desc: |
+      存满现实世界的75天才能计息
+      若提前支取，取出部分会按活期计算
+      日利率0.080%
+    interest: 0.080
+    minimumAmount: 1000.00
+    availableQuota: -1.0
+    minimumKeepingTime: 75
+    allowEarlyWithdraw: true
+  - productCode: 'F100D'
+    name: '100天定期存款'
+    desc: |
+      存满现实世界的100天才能计息
+      若提前支取，取出部分会按活期计算
+      日利率1.10%
+    interest: 1.10
+    minimumAmount: 1000.00
+    availableQuota: -1.0
+    minimumKeepingTime: 100
+    allowEarlyWithdraw: true
+  - productCode: 'F120D'
+    name: '120天定期存款'
+    desc: |
+      存满现实世界的120天才能计息
+      若提前支取，取出部分会按活期计算
+      日利率1.50%
+    interest: 1.50
+    minimumAmount: 1000.00
+    availableQuota: -1.0
+    minimumKeepingTime: 120
+    allowEarlyWithdraw: true
