@@ -3,7 +3,6 @@ package games.dripdrop.simubank.controller.utils
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
 import games.dripdrop.simubank.BukkitBankPlugin
 import games.dripdrop.simubank.model.constant.FileEnums
 import org.bukkit.Bukkit
@@ -11,6 +10,9 @@ import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.nio.file.Files
+import java.sql.ResultSet
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.logging.Level
 
@@ -23,30 +25,36 @@ val gson: Gson = GsonBuilder().setPrettyPrinting().setLenient()
     .disableHtmlEscaping()
     .create()
 
-inline fun <reified T> String.tiObjectList(): List<T?> {
-    return try {
-        if (isNotEmpty()) {
-            gson.fromJson(this, (object : TypeToken<List<T>>() {}.type))
-        } else {
-            emptyList()
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        emptyList()
-    }
+fun createDepositSN(playerUUID: String): String {
+    return StringBuilder("DDB")
+        .append(SimpleDateFormat("yyMMddHHmmss").format(Date()))
+        .append(playerUUID.substring(0, 4).uppercase())
+        .toString()
 }
 
-inline fun <reified T> String.toObject(): T? {
-    return try {
-        if (isNotEmpty()) {
-            gson.fromJson(this, T::class.java)
-        } else {
-            null
+inline fun <reified T> ResultSet.getResultList(callback: (Collection<T?>) -> Unit) {
+    val map = hashMapOf<String, Any?>()
+    val list = arrayListOf<T?>()
+    while (next()) {
+        map.clear()
+        T::class.java.declaredFields.onEach { field ->
+            when (field.type) {
+                String::class.java -> map[field.name] = getString(field.name)
+                Int::class.java -> map[field.name] = getInt(field.name)
+                Long::class.java -> map[field.name] = getLong(field.name)
+                Double::class.java -> map[field.name] = getDouble(field.name)
+                Boolean::class.java -> map[field.name] = getBoolean(field.name)
+                else -> map[field.name] = null
+            }
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
+        try {
+            list.add(gson.fromJson(gson.toJson(map), T::class.java))
+        } catch (e: Exception) {
+            e("failed to convert result to a [${T::class.java.simpleName}] object: ${e.localizedMessage}")
+            e.printStackTrace()
+        }
     }
+    callback(list)
 }
 
 fun runSyncTask(plugin: JavaPlugin, action: () -> Unit) {
@@ -63,13 +71,13 @@ fun runAsyncTask(plugin: JavaPlugin, action: () -> Unit) {
     })
 }
 
-fun d(msg: String) = println(msg) // Bukkit.getLogger().log(Level.ALL, "[DripDropBank] $msg")
+fun d(msg: String) = Bukkit.getLogger().log(Level.ALL, "[DripDropBank] $msg")
 
-fun i(msg: String) = println(msg) //Bukkit.getLogger().log(Level.INFO, "[DripDropBank] $msg")
+fun i(msg: String) = Bukkit.getLogger().log(Level.INFO, "[DripDropBank] $msg")
 
 fun w(msg: String) = Bukkit.getLogger().log(Level.WARNING, "[DripDropBank] $msg")
 
-fun e(msg: String) = println(msg) // Bukkit.getLogger().log(Level.SEVERE, "[DripDropBank] $msg")
+fun e(msg: String) = Bukkit.getLogger().log(Level.SEVERE, "[DripDropBank] $msg")
 
 fun getSpecifiedYaml(
     plugin: JavaPlugin,

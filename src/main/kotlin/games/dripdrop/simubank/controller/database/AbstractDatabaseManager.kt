@@ -4,12 +4,10 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.util.IsolationLevel
 import games.dripdrop.simubank.controller.interfaces.IDatabase
-import games.dripdrop.simubank.controller.utils.d
 import games.dripdrop.simubank.controller.utils.e
+import games.dripdrop.simubank.controller.utils.getResultList
 import games.dripdrop.simubank.controller.utils.i
-import java.sql.Connection
 import java.sql.PreparedStatement
-import java.sql.ResultSet
 import java.sql.SQLException
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -64,64 +62,85 @@ abstract class AbstractDatabaseManager : IDatabase {
         }
     }
 
-    override fun Connection.query(sql: String, map: Map<Int, Any>, callback: (ResultSet) -> Unit) {
-        checkInitState {
-            d("sql of query: $sql")
-            use {
-                prepareStatement(sql).apply {
-                    map.forEach { (k, v) -> setObject(k, v) }
-                    callback(executeQuery())
-                }
-            }
-        }
-    }
+    protected fun isDatabaseInitialized(): Boolean = mIsInit.get()
 
-    override fun Connection.update(sql: String, map: Map<Int, Any>, callback: (Int) -> Unit) {
+    protected fun issueTransaction(
+        isolationLevel: IsolationLevel = IsolationLevel.TRANSACTION_REPEATABLE_READ,
+        transaction: () -> Unit
+    ) {
         checkInitState {
-            d("sql of update: $sql")
-            use {
-                prepareStatement(sql).apply {
-                    map.forEach { (k, v) -> setObject(k, v) }
-                    callback(executeUpdate())
-                }
-            }
-        }
-    }
-
-    override fun Connection.batch(sql: String, callback: (PreparedStatement) -> Unit) {
-        checkInitState {
-            d("sql of batch: $sql")
-            use {
-                prepareStatement(sql).use {
-                    callback(it)
-                    it.executeBatch().apply { i("size of batch results = $size") }
-                }
-            }
-        }
-    }
-
-    override fun Connection.issueTransaction(isolationLevel: IsolationLevel, transaction: () -> Unit) {
-        checkInitState {
-            use {
+            getDataSource()?.connection?.use {
                 try {
-                    transactionIsolation = isolationLevel.levelId
-                    autoCommit = false
+                    it.transactionIsolation = isolationLevel.levelId
+                    it.autoCommit = false
                     transaction()
-                    commit()
+                    it.commit()
                 } catch (e: Exception) {
                     e("failed to issue transaction: ${e.localizedMessage}")
                     e.printStackTrace()
                     if (e is SQLException) {
-                        rollback()
+                        it.rollback()
                     }
                 } finally {
-                    autoCommit = true
+                    it.autoCommit = true
                 }
             }
         }
     }
 
-    protected fun isDatabaseInitialized(): Boolean = mIsInit.get()
+    protected fun batch(
+        sql: String,
+        execute: (PreparedStatement) -> Unit = {},
+        callback: (IntArray) -> Unit = {}
+    ) {
+        i("sql = $sql")
+        checkInitState {
+            getDataSource()?.connection?.use {
+                it.prepareStatement(sql).apply {
+                    execute(this)
+                }.executeBatch().apply { callback(this) }
+            }
+        }
+    }
+
+    protected inline fun <reified T> query(
+        sql: String,
+        crossinline setCondition: (PreparedStatement) -> Unit = {},
+        crossinline callback: (Collection<T?>) -> Unit = {}
+    ) {
+        i("sql = $sql")
+        checkInitState {
+            getDataSource()?.connection?.use {
+                it.prepareStatement(sql).apply {
+                    setCondition(this)
+                }.executeQuery().getResultList<T>(callback)
+            }
+        }
+    }
+
+    protected fun update(
+        sql: String,
+        setCondition: (PreparedStatement) -> Unit = {},
+        callback: (Int) -> Unit = {}
+    ) {
+        i("sql = $sql")
+        checkInitState {
+            getDataSource()?.connection?.use {
+                it.prepareStatement(sql).apply {
+                    setCondition(this)
+                }.executeUpdate().apply { callback(this) }
+            }
+        }
+    }
+
+    protected inline fun <reified T> createTableInsertingSQL(vararg values: String): String {
+        return StringBuilder("INSERT INTO ")
+            .append(T::class.java.simpleName.lowercase())
+            .append(" VALUES (")
+            .apply { values.onEach { append(it) } }
+            .append(")")
+            .toString()
+    }
 
     protected inline fun <reified T> createTableCreatingSQL(vararg columns: String): String {
         return StringBuilder("CREATE TABLE IF NOT EXISTS ")
@@ -132,7 +151,7 @@ abstract class AbstractDatabaseManager : IDatabase {
             .toString()
     }
 
-    private fun checkInitState(action: () -> Unit) {
+    protected fun checkInitState(action: () -> Unit) {
         if (!isDatabaseInitialized()) {
             throw IllegalStateException("database has not been initialized yet")
         }
