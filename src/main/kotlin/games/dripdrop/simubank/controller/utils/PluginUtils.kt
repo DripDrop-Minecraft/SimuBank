@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 const val CHANNEL_NAME = "BungeeCordPlugin"
 const val COMMAND = "ddbank"
+lateinit var currentPlugin: BukkitBankPlugin
+var pluginAnnouncement = AtomicReference<YamlConfiguration>(null)
 var pluginConfig = AtomicReference<YamlConfiguration?>(null)
 var pluginLang = AtomicReference<YamlConfiguration?>(null)
 val gson: Gson = GsonBuilder().setPrettyPrinting().setLenient()

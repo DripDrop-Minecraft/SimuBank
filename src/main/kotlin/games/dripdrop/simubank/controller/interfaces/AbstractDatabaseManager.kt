@@ -1,9 +1,8 @@
-package games.dripdrop.simubank.controller.database
+package games.dripdrop.simubank.controller.interfaces
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import com.zaxxer.hikari.util.IsolationLevel
-import games.dripdrop.simubank.controller.interfaces.IDatabase
 import games.dripdrop.simubank.controller.utils.e
 import games.dripdrop.simubank.controller.utils.getResultList
 import games.dripdrop.simubank.controller.utils.i
@@ -131,6 +130,14 @@ abstract class AbstractDatabaseManager : IDatabase {
                 }.executeUpdate().apply { callback(this) }
             }
         }
+    }
+
+    protected inline fun <reified T> createPagingQuerySQL(vararg condition: String): String {
+        return StringBuilder("SELECT * FROM ")
+            .append(T::class.java.simpleName.lowercase())
+            .append(*condition)
+            .append(" LIMIT ?, ?")
+            .toString()
     }
 
     protected inline fun <reified T> createTableInsertingSQL(vararg values: String): String {

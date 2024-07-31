@@ -1,6 +1,7 @@
 package games.dripdrop.simubank.controller.database
 
 import com.zaxxer.hikari.HikariConfig
+import games.dripdrop.simubank.controller.interfaces.AbstractDatabaseManager
 import games.dripdrop.simubank.controller.utils.i
 import games.dripdrop.simubank.model.data.Announcement
 import games.dripdrop.simubank.model.data.Deposit
@@ -101,16 +102,17 @@ object MySQLManager : AbstractDatabaseManager() {
         }
     }
 
-    fun queryAnnouncementWithAmount(amount: Int = 10, callback: (Collection<Announcement?>) -> Unit) {
-        i("query top $amount announcement data")
+    fun queryAnnouncementWithPaging(
+        offset: Int = 0,
+        limit: Int = 5,
+        callback: (Collection<Announcement?>) -> Unit
+    ) {
+        i("query announcement data with paging")
         query<Announcement>(
-            StringBuilder("SELECT * FROM ")
-                .append(Announcement::class.java.simpleName)
-                .append(" ORDER BY timestamp DESC")
-                .append(" LIMIT ?")
-                .toString(),
+            createPagingQuerySQL<Announcement>(" ORDER BY timestamp DESC"),
             {
-                it.setInt(1, amount)
+                it.setInt(1, offset)
+                it.setInt(2, limit)
             },
             callback
         )
@@ -129,6 +131,7 @@ object MySQLManager : AbstractDatabaseManager() {
                 "'${deposit.description}', ",
                 "${deposit.allowEarlyWithdraw}, ",
                 "${deposit.renewal}, ",
+                "${deposit.updateTime}, ",
                 "${deposit.createTime}"
             )
         ) {
@@ -136,33 +139,30 @@ object MySQLManager : AbstractDatabaseManager() {
         }
     }
 
-    fun queryDepositByUUID(
+    fun queryDepositByUUIDWithPaging(
         playerUUID: String = "",
-        amount: Int = 10,
+        offset: Int = 0,
+        amount: Int = 5,
         callback: (Collection<Deposit?>) -> Unit
     ) {
-        i("query deposit data by player uuid")
+        i("query deposit data by player uuid with paging")
         query<Deposit>(
-            StringBuilder("SELECT * FROM ")
-                .append(Deposit::class.java.simpleName)
-                .apply {
-                    if (playerUUID.isNotEmpty()) {
-                        append(" WHERE ownerId = ?")
-                    }
-                }
-                .append(" LIMIT ?")
-                .toString(),
+            createPagingQuerySQL<Deposit>(
+                (if (playerUUID.isNotEmpty()) " WHERE ownerId = ?" else ""),
+                " ORDER BY updateTime DESC"
+            ),
             {
                 if (playerUUID.isNotEmpty()) {
                     it.setString(1, playerUUID)
-                    it.setInt(2, amount)
+                    it.setInt(2, offset)
+                    it.setInt(3, amount)
                 } else {
-                    it.setInt(1, amount)
+                    it.setInt(1, offset)
+                    it.setInt(2, amount)
                 }
-            }
-        ) {
-            callback(it)
-        }
+            },
+            callback
+        )
     }
 
     fun updateDepositByPlayerUUID(
@@ -234,6 +234,7 @@ object MySQLManager : AbstractDatabaseManager() {
         "description VARCHAR(140) NOT NULL, ",
         "allowEarlyWithdraw BOOLEAN DEFAULT true, ",
         "renewal INT DEFAULT 0, ",
+        "updateTime LONG NOT NULL, ",
         "createTime LONG NOT NULL"
     )
 }

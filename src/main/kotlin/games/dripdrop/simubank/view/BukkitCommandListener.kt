@@ -1,25 +1,25 @@
 package games.dripdrop.simubank.view
 
-import games.dripdrop.simubank.controller.interfaces.ICommand
+import games.dripdrop.simubank.controller.database.MySQLManager
+import games.dripdrop.simubank.controller.interfaces.AbstractCommandManager
 import games.dripdrop.simubank.controller.utils.COMMAND
-import games.dripdrop.simubank.controller.utils.i
-import games.dripdrop.simubank.controller.utils.pluginLang
-import games.dripdrop.simubank.model.constant.Command.*
+import games.dripdrop.simubank.controller.utils.currentPlugin
+import games.dripdrop.simubank.controller.utils.getSpecifiedYaml
+import games.dripdrop.simubank.controller.utils.pluginAnnouncement
 import games.dripdrop.simubank.model.constant.DepositType
+import games.dripdrop.simubank.model.constant.FileEnums
+import games.dripdrop.simubank.model.data.Announcement
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.ChatColor.*
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
-import java.math.BigDecimal
 
-class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
-    private val mCommandsForCommon = mutableListOf(
-        OVERVIEW.value, DEPOSIT.value, WITHDRAW.value, QUERY_ANNOUNCEMENT.value
-    )
+class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandManager() {
 
     override fun onCommand(
         sender: CommandSender,
@@ -39,32 +39,6 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
         label: String,
         args: Array<out String>?
     ): MutableList<String> = getTabCommandList(sender, args)
-
-    override fun execute(sender: CommandSender, args: Array<out String>?) {
-        if (sender !is Player || args.isNullOrEmpty()) {
-            i("cannot execute any command")
-            if (args.isNullOrEmpty()) {
-                sender.sendMessage("${RED}可输入[/ddbank overview]查看个人账户情况")
-            }
-            return
-        }
-        when (args.first()) {
-            DEPOSIT.value -> sender.deposit(args)
-            WITHDRAW.value -> sender.withdraw(args)
-            PUBLISH_ANNOUNCE.value -> sender.publishAnnouncement(args)
-            QUERY_ANNOUNCEMENT.value -> sender.queryAnnouncement()
-            else -> sender.overview()
-        }
-    }
-
-    override fun getTabCommandList(sender: CommandSender, args: Array<out String>?): MutableList<String> {
-        return if (sender.isOp) mutableListOf<String>().apply {
-            addAll(mCommandsForCommon)
-            add(PUBLISH_ANNOUNCE.value)
-            add(RELOAD.value)
-            add(PRODUCT.value)
-        } else mCommandsForCommon
-    }
 
     override fun CommandSender.overview() = sendMessage(createOverviewUI(this))
 
@@ -92,7 +66,9 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
     }
 
     override fun CommandSender.queryAnnouncement() {
-        TODO("Not yet implemented")
+        MySQLManager.queryAnnouncementWithPaging {
+            createAnnouncementList(it)
+        }
     }
 
     override fun CommandSender.publishAnnouncement(args: Array<out String>) {
@@ -103,51 +79,18 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
         }
     }
 
-    private fun isLegalAmount(sender: CommandSender, amount: String): Boolean {
-        val hint = "${RED}请输入有效金额！"
-        return try {
-            (amount.all { "0123456789.".contains(it) }
-                    && BigDecimal(amount) >= BigDecimal(0.01)
-                    && BigDecimal(amount) <= BigDecimal(Double.MAX_VALUE)
-                    ).apply {
-                    i("is amount [$amount] a legal number: $this")
-                    if (!this) {
-                        sender.sendMessage(hint)
-                    }
-                }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            sender.sendMessage(hint)
-            false
-        }
-    }
-
     private fun createOverviewUI(sender: CommandSender): Component {
         return Component.text()
             .append(createTopOrBottomBar())
-            .append(createNewLine())
-            .append(Component.text("用户名：${sender.name}"))
-            .append(createNewLine())
-            .append(Component.text("账号：${if (sender is Player) sender.identity().uuid().toString() else ""}"))
-            .append(createNewLine(2))
-            .append(createPartLine("最新公告"))
-            .append(
-                Component.text(
-                    """
-                $GREEN[央行下调存款利率] @ 2024-07-28 16:19:00
-                ${GREEN}央行下调存款利率，央行下调存款利率，央行下调存款利率，央行下调存款利率
-            """.trimIndent()
-                )
-            )
-            .append(createNewLine())
-            .append(
-                createClickButton(
-                    "$DARK_AQUA>>>>${pluginLang.get()?.get("moreAnnouncements")}<<<<<"
-                ) {
-                    ClickEvent.runCommand("/ddbank help")
-                }
-            )
-            .append(createNewLine(2))
+            .append(createAccountBar(sender))
+            .append(createAnnouncementPart(sender))
+            .append(createBalancePart(sender))
+            .append(createTopOrBottomBar())
+            .build()
+    }
+
+    private fun createBalancePart(sender: CommandSender): Component {
+        return Component.text()
             .append(createPartLine("储蓄情况"))
             .append(Component.text("$GREEN[活期存款] 1234567890.21  "))
             .append(createDepositOrWithdrawButton(sender, true))
@@ -155,7 +98,73 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
             .append(Component.text("$GREEN[定期存款] 1234567890.21  "))
             .append(createDepositOrWithdrawButton(sender, false))
             .append(createNewLine(2))
-            .append(createTopOrBottomBar())
+            .build()
+    }
+
+    private fun createAnnouncementPart(sender: CommandSender): Component {
+        getSpecifiedYaml(currentPlugin, FileEnums.ANNOUNCEMENT) {
+            pluginAnnouncement.set(it)
+        }
+        return Component.text()
+            .append(createPartLine("最新公告"))
+            .append(
+                Component.text(
+                    """
+                $GREEN[${pluginAnnouncement.get()?.getString("title")}]
+                ${pluginAnnouncement.get()?.getString("content")}
+            """.trimIndent()
+                )
+            )
+            .append(createNewLine())
+            .append(
+                createClickButton(
+                    "$DARK_AQUA>>>>点此查看更多公告<<<<<"
+                ) {
+                    sender.queryAnnouncement()
+                }
+            )
+            .append(createNewLine(2))
+            .build()
+    }
+
+    private fun createAnnouncementList(announcements: Collection<Announcement?>): Component {
+        return Component.text("${YELLOW}========近期公告========")
+            .apply {
+                announcements.onEach { a ->
+                    a?.let { append(createAnnouncementItem(it)) }
+                }
+            }
+            .append(createNewLine())
+            .append(Component.text("${YELLOW}======== "))
+            .append(Component.text("${RED}上一页").clickEvent(ClickEvent.callback {
+                // TODO
+            }))
+            .append(Component.text(" "))
+            .append(Component.text("${GREEN}下一页").clickEvent(ClickEvent.callback {
+                // TODO
+            }))
+            .append(Component.text("$YELLOW ========"))
+    }
+
+    private fun createAnnouncementItem(announcement: Announcement): Component {
+        return Component.text()
+            .append(Component.text("$RED${announcement.timestamp} "))
+            .append(
+                Component.text("$GREEN${announcement.title}").hoverEvent(
+                    HoverEvent.showText(Component.text(announcement.content))
+                )
+            )
+            .append(createNewLine())
+            .build()
+    }
+
+    private fun createAccountBar(sender: CommandSender): Component {
+        return Component.text()
+            .append(createNewLine())
+            .append(Component.text("用户名：${sender.name}"))
+            .append(createNewLine())
+            .append(Component.text("账号：${if (sender is Player) sender.identity().uuid() else "----"}"))
+            .append(createNewLine(2))
             .build()
     }
 
@@ -164,10 +173,12 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
             .clickEvent(
                 ClickEvent.callback {
                     if (isCurrent) {
-                        sender.sendMessage("${RED}请使用指令 /ddbank deposit 0 <待存金额> 进行存款")
+                        ClickEvent.suggestCommand("/ddbank deposit 0 <待存金额>")
+                        sender.sendMessage("${RED}请输入待存金额并执行指令进行存款")
                     } else {
-                        // TODO: 展示存款列表
-                        sender.sendMessage("${RED}请使用指令 /ddbank deposit <存款产品编号> <待存金额> 进行存款")
+                        createFixedDepositProductList()
+                        ClickEvent.suggestCommand("/ddbank deposit <存款产品编号> <待存金额>")
+                        sender.sendMessage("${RED}请输入存款产品编号和待存金额并执行指令进行存款")
                     }
                 }
             ).append(
@@ -175,39 +186,23 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, ICommand {
                     .clickEvent(
                         ClickEvent.callback {
                             if (isCurrent) {
-                                sender.sendMessage("${RED}请使用指令 /ddbank withdraw 0 <待取金额> 进行取款")
+                                ClickEvent.suggestCommand("/ddbank withdraw 0 <待取金额>")
+                                sender.sendMessage("${RED}请输入待存金额并执行指令进行取款")
                             } else {
-                                // TODO: 展示存单列表
-                                sender.sendMessage("${RED}请使用指令 /ddbank withdraw <存单编号> <待取金额> 进行取款")
+                                createDepositDataList()
+                                ClickEvent.suggestCommand("/ddbank withdraw <存单编号> <待取金额>")
+                                sender.sendMessage("${RED}请输入存单编号和待取金额并执行指令进行取款")
                             }
                         }
                     )
             )
     }
 
-    private fun createTopOrBottomBar(): Component {
-        return Component.text("$YELLOW========DripDrop在线银行========")
+    private fun createFixedDepositProductList() {
+        // TODO
     }
 
-    private fun createNewLine(amount: Int = 1): Component {
-        return Component.text(
-            StringBuilder()
-                .apply {
-                    repeat(amount) {
-                        append("\n")
-                    }
-                }
-                .toString()
-        )
-    }
-
-    private fun createPartLine(title: String): Component {
-        return createNewLine()
-            .append(Component.text("$RED--------$title--------"))
-            .append(createNewLine())
-    }
-
-    private fun createClickButton(title: String, action: () -> Unit): Component {
-        return Component.text(title).clickEvent(ClickEvent.callback { action() })
+    private fun createDepositDataList() {
+        // TODO
     }
 }

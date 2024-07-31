@@ -7,9 +7,9 @@ group = "games.dripdrop"
 version = "1.0-SNAPSHOT"
 
 repositories {
+    maven("https://maven.aliyun.com/repository/public/")
     maven("https://maven.aliyun.com/repository/jcenter")
     maven("https://maven.aliyun.com/repository/gradle-plugin")
-    maven("https://maven.aliyun.com/repository/public/")
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://oss.sonatype.org/content/groups/public/")
     maven("https://repo.minebench.de/")
