@@ -6,7 +6,6 @@ import games.dripdrop.simubank.controller.utils.*
 import games.dripdrop.simubank.model.constant.DepositType
 import games.dripdrop.simubank.model.constant.FileEnums
 import games.dripdrop.simubank.model.data.Announcement
-import games.dripdrop.simubank.model.data.Product
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -16,8 +15,6 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
-import java.text.SimpleDateFormat
-import java.util.*
 
 class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandManager() {
 
@@ -70,71 +67,85 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
     }
 
     override fun CommandSender.queryAnnouncement() {
-        MySQLManager.queryAnnouncementWithPaging {
-            sendMessage(createAnnouncementList(it))
+        if (this is Player) {
+            queryAnnouncementWithPaging(this, 0)
         }
     }
 
-    override fun CommandSender.publishAnnouncement(args: Array<out String>) {
-        if (isOp) {
-            getSpecifiedYaml(currentPlugin, FileEnums.ANNOUNCEMENT) {
-                pluginAnnouncement.set(it)
-                sendMessage(
-                    Component.text()
-                        .append(Component.text("$GREEN["))
-                        .append(Component.text(SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Date())))
-                        .append(Component.text(" ${GREEN}来自银行的公告]"))
-                        .append(createNewLine())
-                        .append(Component.text("${RED}${it.get("title") ?: ""}"))
-                        .append(createNewLine())
-                        .append(Component.text("${YELLOW}${it.get("content") ?: ""}"))
-                        .build()
-                )
-            }
-        } else {
-            sendMessage("${RED}玩家 $name 没有执行该指令的权限！")
-        }
-    }
-
+    /*=============================创建首页=========================*/
     private fun createOverviewUI(sender: CommandSender): Component {
         return Component.text()
             .append(createTopOrBottomBar())
-            .append(createAccountBar(sender))
+            .append(sender.createAccountBar())
             .append(createAnnouncementPart(sender))
             .append(createBalancePart(sender))
             .append(createTopOrBottomBar())
             .build()
     }
 
-    private fun createAccountBar(sender: CommandSender): Component {
-        return Component.text()
-            .append(createNewLine())
-            .append(Component.text("用户名：${sender.name}"))
-            .append(createNewLine())
-            .append(Component.text("账号：${if (sender is Player) sender.identity().uuid() else "----"}"))
-            .append(createNewLine(2))
-            .build()
-    }
-
+    /*=============================创建公告模块=========================*/
     private fun createAnnouncementPart(sender: CommandSender): Component {
+        val announcement = pluginAnnouncement.get()
         return Component.text()
             .append(createPartLine("最新公告"))
-            .append(
-                Component.text(
-                    "$GREEN[ ${pluginAnnouncement.get()?.getString("title") ?: "暂无公告"} ]"
-                )
-            ).append(createNewLine())
-            .append(Component.text(pluginAnnouncement.get()?.getString("content") ?: ""))
+            .append(Component.text("$GREEN[ ${announcement?.getString("title") ?: "暂无公告"} ]"))
             .append(createNewLine())
-            .append(
-                createClickButton("$DARK_AQUA>>>>点此查看更多公告<<<<<") {
-                    sender.queryAnnouncement()
-                }
-            )
+            .append(Component.text(announcement?.getString("content") ?: ""))
+            .append(createNewLine())
+            .append(createClickButton("$DARK_AQUA>>>>点此查看更多公告<<<<<") {
+                sender.queryAnnouncement()
+            })
             .append(createNewLine(2))
             .build()
     }
 
+    /*=============================创建近期公告列表模块=========================*/
+    private fun queryAnnouncementWithPaging(player: Player, startPosition: Int) {
+        runAsyncTask(currentPlugin) {
+            MySQLManager.queryAnnouncementWithPaging(offset = startPosition) {
+                if (!it.isEmpty()) {
+                    mAnnouncementIndexMap[player.identity().uuid()] = startPosition
+                    createAnnouncementList(player, it)
+                } else {
+                    player.sendMessage("${RED}已没有更多公告！")
+                }
+            }
+        }
+    }
+
+    private fun createAnnouncementList(player: Player, announcements: Collection<Announcement?>) {
+        player.sendMessage("")
+        player.sendMessage(Component.text("${YELLOW}========更多公告========"))
+        announcements.onEach {
+            player.sendMessage(createAnnouncementItem(it))
+        }
+        Component.text("${GREEN}下一页")
+            .clickEvent(createClickCallback(player))
+            .append(createNewLine())
+            .append(Component.text("$YELLOW========================="))
+            .apply { player.sendMessage(this) }
+        player.sendMessage("")
+    }
+
+    private fun createAnnouncementItem(announcement: Announcement?): Component {
+        return if (announcement != null) {
+            Component.text()
+                .content("$RED[${announcement.timestamp}] $GREEN${announcement.title}")
+                .hoverEvent(HoverEvent.showText(Component.text(announcement.content)))
+                .build()
+        } else {
+            Component.text("")
+        }
+    }
+
+    private fun createClickCallback(player: Player): ClickEvent {
+        val currentPosition = (mAnnouncementIndexMap[player.identity().uuid()] ?: 0) + 5
+        return ClickEvent.callback {
+            queryAnnouncementWithPaging(player, currentPosition)
+        }
+    }
+
+    /*=============================创建余额信息展示模块=========================*/
     private fun createBalancePart(sender: CommandSender): Component {
         return Component.text()
             .append(createPartLine("储蓄情况"))
@@ -149,37 +160,6 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
             .build()
     }
 
-    private fun createAnnouncementList(announcements: Collection<Announcement?>): Component {
-        return Component.text("${YELLOW}========近期公告========")
-            .apply {
-                announcements.onEach { a ->
-                    a?.let { append(createAnnouncementItem(it)) }
-                }
-            }
-            .append(createNewLine())
-            .append(Component.text("${YELLOW}======== "))
-            .append(Component.text("${RED}上一页").clickEvent(ClickEvent.callback {
-                // TODO
-            }))
-            .append(Component.text(" "))
-            .append(Component.text("${GREEN}下一页").clickEvent(ClickEvent.callback {
-                // TODO
-            }))
-            .append(Component.text("$YELLOW ========"))
-    }
-
-    private fun createAnnouncementItem(announcement: Announcement): Component {
-        return Component.text()
-            .append(Component.text("$RED${announcement.timestamp} "))
-            .append(
-                Component.text("$GREEN${announcement.title}").hoverEvent(
-                    HoverEvent.showText(Component.text(announcement.content))
-                )
-            )
-            .append(createNewLine())
-            .build()
-    }
-
     private fun createDepositButton(sender: CommandSender, isCurrent: Boolean): Component {
         return Component.text()
             .content("$DARK_AQUA[存款]")
@@ -188,7 +168,7 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
                     if (isCurrent) {
                         "${RED}请执行指令 /ddbank deposit 0 <待存金额> 进行存款"
                     } else {
-                        createFixedDepositProductList(sender)
+                        sender.createFixedDepositProductList()
                         "${RED}请执行指令 /ddbank deposit <存款产品编号> <待存金额> 进行存款"
                     }
                 )
@@ -211,29 +191,6 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
                 )
             })
             .build()
-    }
-
-    private fun createFixedDepositProductList(sender: CommandSender) {
-        getSpecifiedYaml(currentPlugin, FileEnums.PRODUCTS) {
-            val component = Component.text()
-                .append(Component.text("$RED========定期存款产品========"))
-                .append(createNewLine())
-            it.getMapList("products").onEach { product ->
-                if ("C001" != product["productCode"]) {
-                    gson.fromJson(gson.toJson(product), Product::class.java)?.let { p ->
-                        component.append(Component.text("$YELLOW${p.productCode} "))
-                            .append(
-                                Component.text("$AQUA${p.name} ")
-                                    .hoverEvent(HoverEvent.showText(Component.text(p.desc)))
-                            )
-                            .append(Component.text("${GREEN}${p.minimumAmount} 起存"))
-                            .append(createNewLine())
-                    }
-                }
-            }
-            component.append(Component.text("$RED========定期存款产品========"))
-            sender.sendMessage(component)
-        }
     }
 
     private fun createDepositDataList() {

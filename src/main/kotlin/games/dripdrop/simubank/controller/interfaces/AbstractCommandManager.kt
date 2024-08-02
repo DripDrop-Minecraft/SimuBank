@@ -1,19 +1,25 @@
 package games.dripdrop.simubank.controller.interfaces
 
-import games.dripdrop.simubank.controller.utils.i
+import games.dripdrop.simubank.controller.utils.*
 import games.dripdrop.simubank.model.constant.Command.*
+import games.dripdrop.simubank.model.constant.FileEnums
+import games.dripdrop.simubank.model.data.Product
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
-import org.bukkit.ChatColor.RED
-import org.bukkit.ChatColor.YELLOW
+import net.kyori.adventure.text.event.HoverEvent
+import org.bukkit.ChatColor.*
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.*
 
 abstract class AbstractCommandManager : ICommand {
     private val mCommandsForCommon = mutableListOf(
         OVERVIEW.value, DEPOSIT.value, WITHDRAW.value, QUERY_ANNOUNCEMENT.value
     )
+    protected val mAnnouncementIndexMap = hashMapOf<UUID, Int>()
+    protected val mDepositIndexMap = hashMapOf<UUID, Int>()
 
     override fun execute(sender: CommandSender, args: Array<out String>?) {
         if (sender !is Player || args.isNullOrEmpty()) {
@@ -39,6 +45,60 @@ abstract class AbstractCommandManager : ICommand {
             add(RELOAD.value)
             add(PRODUCT.value)
         } else mCommandsForCommon
+    }
+
+    override fun CommandSender.publishAnnouncement(args: Array<out String>) {
+        if (isOp) {
+            getSpecifiedYaml(currentPlugin, FileEnums.ANNOUNCEMENT) {
+                pluginAnnouncement.set(it)
+                sendMessage(
+                    Component.text()
+                        .append(Component.text("$GREEN["))
+                        .append(Component.text(SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Date())))
+                        .append(Component.text(" ${GREEN}来自银行的公告]"))
+                        .append(createNewLine())
+                        .append(Component.text("${RED}${it.get("title") ?: ""}"))
+                        .append(createNewLine())
+                        .append(Component.text("${YELLOW}${it.get("content") ?: ""}"))
+                        .build()
+                )
+            }
+        } else {
+            sendMessage("${RED}玩家 $name 没有执行该指令的权限！")
+        }
+    }
+
+    protected fun CommandSender.createFixedDepositProductList() {
+        getSpecifiedYaml(currentPlugin, FileEnums.PRODUCTS) {
+            val component = Component.text()
+                .append(Component.text("$RED========定期存款产品========"))
+                .append(createNewLine())
+            it.getMapList("products").onEach { product ->
+                if ("C001" != product["productCode"]) {
+                    gson.fromJson(gson.toJson(product), Product::class.java)?.let { p ->
+                        component.append(Component.text("$YELLOW${p.productCode} "))
+                            .append(
+                                Component.text("$AQUA${p.name} ")
+                                    .hoverEvent(HoverEvent.showText(Component.text(p.desc)))
+                            )
+                            .append(Component.text("${GREEN}${p.minimumAmount} 起存"))
+                            .append(createNewLine())
+                    }
+                }
+            }
+            component.append(Component.text("$RED========定期存款产品========"))
+            sendMessage(component)
+        }
+    }
+
+    protected fun CommandSender.createAccountBar(): Component {
+        return Component.text()
+            .append(createNewLine())
+            .append(Component.text("用户名：$name"))
+            .append(createNewLine())
+            .append(Component.text("账号：${if (this is Player) identity().uuid() else "----"}"))
+            .append(createNewLine(2))
+            .build()
     }
 
     protected fun isLegalAmount(sender: CommandSender, amount: String): Boolean {
