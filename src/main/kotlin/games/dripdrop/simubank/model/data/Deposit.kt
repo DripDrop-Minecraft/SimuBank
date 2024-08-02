@@ -6,7 +6,7 @@ data class Deposit(
     // 存单所有者标识符（玩家UUID）
     val ownerId: String,
     // 存单金额
-    val amount: Double,
+    var amount: Double,
     // 计息策略
     val interestBearingPolicy: Int,
     // 存单利率
@@ -14,13 +14,13 @@ data class Deposit(
     // 存单对应的产品类型
     val type: Int,
     // 存单描述
-    val description: String,
+    var description: String,
     // 是否允许提前支取
     val allowEarlyWithdraw: Boolean,
     // 续期次数
-    val renewal: Int,
+    var renewal: Int,
     // 存单更新时间
-    val updateTime: Long = System.currentTimeMillis(),
+    var updateTime: Long = System.currentTimeMillis(),
     // 存单创建时间
     val createTime: Long = System.currentTimeMillis()
 )
