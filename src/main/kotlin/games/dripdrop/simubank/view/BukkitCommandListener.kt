@@ -40,7 +40,7 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
     override fun CommandSender.overview() {
         getSpecifiedYaml(currentPlugin, FileEnums.ANNOUNCEMENT) {
             pluginAnnouncement.set(it)
-            sendMessage(createOverviewUI(this))
+            createOverviewUI(this)
         }
     }
 
@@ -73,14 +73,12 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
     }
 
     /*=============================创建首页=========================*/
-    private fun createOverviewUI(sender: CommandSender): Component {
-        return Component.text()
-            .append(createTopOrBottomBar())
-            .append(sender.createAccountBar())
-            .append(createAnnouncementPart(sender))
-            .append(createBalancePart(sender))
-            .append(createTopOrBottomBar())
-            .build()
+    private fun createOverviewUI(sender: CommandSender) {
+        sender.sendMessage(createTopOrBottomBar())
+        sender.createAccountBar()
+        sender.sendMessage(createAnnouncementPart(sender))
+        sender.createBalancePart()
+        sender.sendMessage(createTopOrBottomBar())
     }
 
     /*=============================创建公告模块=========================*/
@@ -91,11 +89,9 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
             .append(Component.text("$GREEN[ ${announcement?.getString("title") ?: "暂无公告"} ]"))
             .append(createNewLine())
             .append(Component.text(announcement?.getString("content") ?: ""))
-            .append(createNewLine())
             .append(createClickButton("$DARK_AQUA>>>>点此查看更多公告<<<<<") {
                 sender.queryAnnouncement()
             })
-            .append(createNewLine(2))
             .build()
     }
 
@@ -146,18 +142,19 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
     }
 
     /*=============================创建余额信息展示模块=========================*/
-    private fun createBalancePart(sender: CommandSender): Component {
-        return Component.text()
-            .append(createPartLine("储蓄情况"))
-            .append(Component.text("$GREEN[活期存款] 1234567890.21  "))
-            .append(createDepositButton(sender, true))
-            .append(createWithdrawButton(sender, true))
-            .append(createNewLine())
-            .append(Component.text("$GREEN[定期存款] 1234567890.21  "))
-            .append(createDepositButton(sender, false))
-            .append(createWithdrawButton(sender, false))
-            .append(createNewLine(2))
-            .build()
+    private fun CommandSender.createBalancePart() {
+        runAsyncTask(currentPlugin) {
+            Component.text()
+                .append(createPartLine("储蓄情况"))
+                .append(Component.text("$GREEN[活期存款] 1234567890.21  "))
+                .append(createDepositButton(this, true))
+                .append(createWithdrawButton(this, true))
+                .append(createNewLine())
+                .append(Component.text("$GREEN[定期存款] 1234567890.21  "))
+                .append(createDepositButton(this, false))
+                .append(createWithdrawButton(this, false))
+                .build().apply { sendMessage(this) }
+        }
     }
 
     private fun createDepositButton(sender: CommandSender, isCurrent: Boolean): Component {
@@ -194,6 +191,10 @@ class BukkitCommandListener : CommandExecutor, TabCompleter, AbstractCommandMana
     }
 
     private fun createDepositDataList() {
-        // TODO
+        runAsyncTask(currentPlugin) {
+            MySQLManager.queryDepositByUUIDWithPaging {
+
+            }
+        }
     }
 }

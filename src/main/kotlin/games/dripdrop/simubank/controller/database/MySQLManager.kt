@@ -3,6 +3,8 @@ package games.dripdrop.simubank.controller.database
 import com.zaxxer.hikari.HikariConfig
 import games.dripdrop.simubank.controller.interfaces.AbstractDatabaseManager
 import games.dripdrop.simubank.controller.utils.i
+import games.dripdrop.simubank.model.constant.DepositType
+import games.dripdrop.simubank.model.constant.ErrorCode
 import games.dripdrop.simubank.model.data.Announcement
 import games.dripdrop.simubank.model.data.Deposit
 import games.dripdrop.simubank.model.data.PlayTime
@@ -14,8 +16,8 @@ import java.sql.PreparedStatement
 object MySQLManager : AbstractDatabaseManager() {
     private var mConfig: YamlConfiguration? = null
 
-    override fun createDatabase(databaseName: String) {
-        super.createDatabase(databaseName)
+    override fun createDatabase() {
+        super.createDatabase()
         arrayOf(
             createAnnouncementTable(),
             createPlayTimeTable(),
@@ -33,7 +35,7 @@ object MySQLManager : AbstractDatabaseManager() {
         }
         mConfig = config
         initDatabase(crateHikariConfig(config))
-        config.getString("databaseName")?.let { createDatabase(it) }
+        createDatabase()
     }
 
     fun insertPlayTimeData(playTime: PlayTime, callback: (Boolean) -> Unit) {
@@ -52,7 +54,7 @@ object MySQLManager : AbstractDatabaseManager() {
     fun queryPlayTimeByUUID(playerUUID: String = "", callback: (Collection<PlayTime?>) -> Unit) {
         i("query play time data by player's uuid")
         query<PlayTime>(
-            StringBuilder("SELECT * FROM ")
+            StringBuilder("SELECT * FROM dripdropbank.")
                 .append(PlayTime::class.java.simpleName)
                 .apply {
                     if (playerUUID.isNotEmpty()) {
@@ -75,7 +77,7 @@ object MySQLManager : AbstractDatabaseManager() {
     ) {
         i("update play time data by player's uuid")
         update(
-            StringBuilder("UPDATE ")
+            StringBuilder("UPDATE dripdropbank.")
                 .append(PlayTime::class.java.simpleName.lowercase())
                 .append(" SET ")
                 .append(*update)
@@ -141,6 +143,7 @@ object MySQLManager : AbstractDatabaseManager() {
 
     fun queryDepositByUUIDWithPaging(
         playerUUID: String = "",
+        type: Int = DepositType.FIXED.type,
         offset: Int = 0,
         amount: Int = 5,
         callback: (Collection<Deposit?>) -> Unit
@@ -149,49 +152,153 @@ object MySQLManager : AbstractDatabaseManager() {
         query<Deposit>(
             createPagingQuerySQL<Deposit>(
                 (if (playerUUID.isNotEmpty()) " WHERE ownerId = ?" else ""),
+                (if (playerUUID.isNotEmpty()) " AND type = ?" else " WHERE type = ?"),
+                (if (DepositType.FIXED.type == type) " AND amount > 0.00" else ""),
                 " ORDER BY updateTime DESC"
             ),
             {
                 if (playerUUID.isNotEmpty()) {
                     it.setString(1, playerUUID)
+                    it.setInt(2, type)
+                    it.setInt(3, offset)
+                    it.setInt(4, amount)
+                } else {
+                    it.setInt(1, type)
                     it.setInt(2, offset)
                     it.setInt(3, amount)
-                } else {
-                    it.setInt(1, offset)
-                    it.setInt(2, amount)
                 }
             },
             callback
         )
     }
 
-    fun updateDepositByPlayerUUID(
+    fun queryFixedDepositByPlayerUUIDAndSN(
         playerUUID: String,
+        sn: String,
+        callback: (Collection<Deposit?>) -> Unit
+    ) {
+        query<Deposit>(
+            StringBuilder("SELECT * FROM dripdropbank.")
+                .append(Deposit::class.java.simpleName.lowercase())
+                .append(" WHERE ownerId = ?")
+                .append(" AND sn = ?")
+                .toString(),
+            {
+                it.setString(1, playerUUID)
+                it.setString(2, sn)
+            },
+            callback
+        )
+    }
+
+    fun updateCurrentDepositAmountWithUUID(
+        playerUUID: String,
+        diff: Double,
+        callback: (ErrorCode) -> Unit
+    ) {
+        queryDepositByUUIDWithPaging(playerUUID, DepositType.CURRENT.type) { list ->
+            if (list.isEmpty()) {
+                callback(ErrorCode.NO_CURRENT_ACCOUNT)
+            }
+            list.firstOrNull()?.apply {
+                if (amount + diff >= 0.0) {
+                    amount += diff
+                    updateDepositBySN(sn, "amount = $amount") { callback(ErrorCode.SUCCESS) }
+                } else {
+                    callback(ErrorCode.INSUFFICIENT_FUND)
+                }
+            }
+        }
+    }
+
+    fun updateFixedDepositAmountBySN(
+        playerUUID: String,
+        sn: String,
+        diff: Double,
+        callback: (ErrorCode) -> Unit
+    ) {
+        queryFixedDepositByPlayerUUIDAndSN(playerUUID, sn) { list ->
+            if (list.isEmpty()) {
+                callback(ErrorCode.NO_SUCH_DEPOSIT)
+            }
+            list.firstOrNull()?.apply {
+                when {
+                    amount + diff < 0.00 -> {
+                        callback(ErrorCode.INSUFFICIENT_FUND)
+                    }
+
+                    amount + diff == 0.00 -> {
+                        amount += diff
+                        updateDepositBySN(sn, "amount = $amount") {
+                            if (it) {
+                                callback(ErrorCode.ALL_WITHDRAW)
+                            } else {
+                                callback(ErrorCode.UNKNOWN)
+                            }
+                        }
+                    }
+
+                    amount + diff > 0.00 -> {
+                        amount += diff
+                        updateDepositBySN(sn, "amount = $amount") { callback(ErrorCode.SUCCESS) }
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateDepositBySN(
+        sn: String,
         vararg update: String,
         callback: (Boolean) -> Unit
     ) {
         update(
-            StringBuilder("UPDATE ")
+            StringBuilder("UPDATE dripdropbank.")
                 .append(Deposit::class.java.simpleName.lowercase())
                 .append(" SET ")
                 .append(*update)
-                .append(" WHERE ownerId = ?")
+                .append(", updateTime = ${System.currentTimeMillis()}")
+                .append(" WHERE sn = ?")
                 .toString(),
             {
-                it.setString(1, playerUUID)
+                it.setString(1, sn)
             }
         ) {
             callback(it > 0)
         }
     }
 
-    fun deleteDepositByPlayerUUID(
+    fun updateDepositByPlayerUUID(
+        playerUUID: String,
+        type: Int = DepositType.FIXED.type,
+        vararg update: String,
+        callback: (Boolean) -> Unit
+    ) {
+        update(
+            StringBuilder("UPDATE dripdropbank.")
+                .append(Deposit::class.java.simpleName.lowercase())
+                .append(" SET ")
+                .append(*update)
+                .append(", updateTime = ${System.currentTimeMillis()}")
+                .append(" WHERE ownerId = ?")
+                .append(" AND type = ?")
+                .toString(),
+            {
+                it.setString(1, playerUUID)
+                it.setInt(2, type)
+            }
+        ) {
+            callback(it > 0)
+        }
+    }
+
+    fun deleteDepositWithConditions(
         setCondition: (PreparedStatement) -> Unit,
         vararg condition: String,
         callback: (Boolean) -> Unit
     ) {
         update(
-            StringBuilder("DELETE FROM ")
+            StringBuilder("DELETE FROM dripdropbank.")
                 .append(Deposit::class.java.simpleName)
                 .append(" WHERE ")
                 .append(*condition)

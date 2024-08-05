@@ -13,5 +13,5 @@ interface IDatabase {
     // 获取连接池
     fun getDataSource(): HikariDataSource?
 
-    fun createDatabase(databaseName: String)
+    fun createDatabase()
 }

@@ -91,14 +91,12 @@ abstract class AbstractCommandManager : ICommand {
         }
     }
 
-    protected fun CommandSender.createAccountBar(): Component {
-        return Component.text()
-            .append(createNewLine())
+    protected fun CommandSender.createAccountBar() {
+        Component.text()
             .append(Component.text("用户名：$name"))
             .append(createNewLine())
             .append(Component.text("账号：${if (this is Player) identity().uuid() else "----"}"))
-            .append(createNewLine(2))
-            .build()
+            .build().apply { sendMessage(this) }
     }
 
     protected fun isLegalAmount(sender: CommandSender, amount: String): Boolean {
@@ -137,8 +135,7 @@ abstract class AbstractCommandManager : ICommand {
     }
 
     protected fun createPartLine(title: String): Component {
-        return createNewLine()
-            .append(Component.text("$RED--------$title--------"))
+        return Component.text("$RED--------$title--------")
             .append(createNewLine())
     }
 
